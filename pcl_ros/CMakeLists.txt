@@ -49,7 +49,9 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   tf
+  tf2_ros
   tf2_eigen
+  tf2_geometry_msgs
 )
 
 ## Add include directories
@@ -96,6 +98,7 @@ catkin_package(
     sensor_msgs
     std_msgs
     tf
+    tf2_ros
   DEPENDS
     Boost
     EIGEN3

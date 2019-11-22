@@ -59,7 +59,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 
 // Include TF
-#include <tf/transform_listener.h>
+#include <tf2_ros/transform_listener.h>
 
 using pcl_conversions::fromPCL;
 
@@ -91,7 +91,8 @@ namespace pcl_ros
 
       /** \brief Empty constructor. */
       PCLNodelet () : use_indices_ (false), latched_indices_ (false),
-                      max_queue_size_ (3), approximate_sync_ (false) {};
+                      max_queue_size_ (3), approximate_sync_ (false),
+					  tf_buffer_() {};
 
     protected:
       /** \brief Set to true if point indices are used.
@@ -129,8 +130,11 @@ namespace pcl_ros
       /** \brief True if we use an approximate time synchronizer versus an exact one (false by default). */
       bool approximate_sync_;
 
-      /** \brief TF listener object. */
-      tf::TransformListener tf_listener_;
+      /** \brief TF BufferCore object. */
+      tf2::BufferCore tf_buffer_;
+
+      /** \brief Pointer to TF listener object. */
+      boost::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
       /** \brief Test whether a given PointCloud message is "valid" (i.e., has points, and width and height are non-zero).
         * \param cloud the point cloud to test
@@ -211,6 +215,8 @@ namespace pcl_ros
         pnh_->getParam ("use_indices", use_indices_);
         pnh_->getParam ("latched_indices", latched_indices_);
         pnh_->getParam ("approximate_sync", approximate_sync_);
+
+        tf_listener_ = boost::make_shared<tf2_ros::TransformListener>(boost::ref(tf_buffer_), *nh_);
 
         NODELET_DEBUG ("[%s::onInit] PCL Nodelet successfully created with the following parameters:\n"
             " - approximate_sync : %s\n"

@@ -74,7 +74,7 @@ pcl_ros::Filter::computePublish (const PointCloud2::ConstPtr &input, const Indic
     NODELET_DEBUG ("[%s::computePublish] Transforming output dataset from %s to %s.", getName ().c_str (), output.header.frame_id.c_str (), tf_output_frame_.c_str ());
     // Convert the cloud into the different frame
     PointCloud2 cloud_transformed;
-    if (!pcl_ros::transformPointCloud (tf_output_frame_, output, cloud_transformed, tf_listener_))
+    if (!pcl_ros::transformPointCloud (tf_output_frame_, output, cloud_transformed, tf_buffer_))
     {
       NODELET_ERROR ("[%s::computePublish] Error converting output dataset from %s to %s.", getName ().c_str (), output.header.frame_id.c_str (), tf_output_frame_.c_str ());
       return;
@@ -87,7 +87,7 @@ pcl_ros::Filter::computePublish (const PointCloud2::ConstPtr &input, const Indic
     NODELET_DEBUG ("[%s::computePublish] Transforming output dataset from %s back to %s.", getName ().c_str (), output.header.frame_id.c_str (), tf_input_orig_frame_.c_str ());
     // Convert the cloud into the different frame
     PointCloud2 cloud_transformed;
-    if (!pcl_ros::transformPointCloud (tf_input_orig_frame_, output, cloud_transformed, tf_listener_))
+    if (!pcl_ros::transformPointCloud (tf_input_orig_frame_, output, cloud_transformed, tf_buffer_))
     {
       NODELET_ERROR ("[%s::computePublish] Error converting output dataset from %s back to %s.", getName ().c_str (), output.header.frame_id.c_str (), tf_input_orig_frame_.c_str ());
       return;
@@ -227,7 +227,7 @@ pcl_ros::Filter::input_indices_callback (const PointCloud2::ConstPtr &cloud, con
     // Save the original frame ID
     // Convert the cloud into the different frame
     PointCloud2 cloud_transformed;
-    if (!pcl_ros::transformPointCloud (tf_input_frame_, *cloud, cloud_transformed, tf_listener_))
+    if (!pcl_ros::transformPointCloud (tf_input_frame_, *cloud, cloud_transformed, tf_buffer_))
     {
       NODELET_ERROR ("[%s::input_indices_callback] Error converting input dataset from %s to %s.", getName ().c_str (), cloud->header.frame_id.c_str (), tf_input_frame_.c_str ());
       return;

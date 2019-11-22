@@ -184,7 +184,7 @@ pcl_ros::ExtractPolygonalPrismData::input_hull_indices_callback (
   {
     NODELET_DEBUG ("[%s::input_hull_callback] Planar hull has a different TF frame (%s) than the input point cloud (%s)! Using TF to transform.", getName ().c_str (), hull->header.frame_id.c_str (), cloud->header.frame_id.c_str ());
     PointCloud planar_hull;
-    if (!pcl_ros::transformPointCloud (cloud->header.frame_id, *hull, planar_hull, tf_listener_))
+    if (!pcl_ros::transformPointCloud (cloud->header.frame_id, *hull, planar_hull, tf_buffer_))
     {
       // Publish empty before return
       pub_output_.publish (inliers);

@@ -52,8 +52,10 @@ Cloud Data) format.
 #include <pcl/io/pcd_io.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include "pcl_ros/transforms.h"
-#include <tf/transform_listener.h>
-#include <tf/transform_broadcaster.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2/transform_datatypes.h>
 
 typedef sensor_msgs::PointCloud2 PointCloud;
 typedef PointCloud::Ptr PointCloudPtr;
@@ -72,8 +74,9 @@ int
   }
 
   // TF
-  tf::TransformListener tf_listener;
-  tf::TransformBroadcaster tf_broadcaster;
+  tf2_ros::Buffer tf_buffer;
+  tf2_ros::TransformListener tf_listener(tf_buffer);
+  tf2_ros::TransformBroadcaster tf_broadcaster;
 
   rosbag::Bag bag;
   rosbag::View view;
@@ -115,7 +118,8 @@ int
   while (view_it != view.end ())
   {
     // Handle TF messages first
-    tf::tfMessage::ConstPtr tf = view_it->instantiate<tf::tfMessage> ();
+
+	tf2_msgs::TFMessageConstPtr tf = view_it->instantiate<tf2_msgs::TFMessage>();
     if (tf != NULL)
     {
       tf_broadcaster.sendTransform (tf->transforms);
@@ -136,7 +140,7 @@ int
       if(argc > 4)
       {
         // Transform it
-        if (!pcl_ros::transformPointCloud (argv[4], *cloud, cloud_t, tf_listener))
+        if (!pcl_ros::transformPointCloud (argv[4], *cloud, cloud_t, tf_buffer))
         {
          ++view_it;
          continue;

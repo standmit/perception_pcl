@@ -39,6 +39,7 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 #include "pcl_ros/transforms.h"
+#include <tf2/exceptions.h>
 
 using pcl_conversions::fromPCL;
 using pcl_conversions::toPCL;
@@ -68,6 +69,27 @@ transformPointCloudWithNormals (const pcl::PointCloud <PointT> &cloud_in,
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> void
+transformPointCloudWithNormals (const pcl::PointCloud <PointT> &cloud_in,
+                                pcl::PointCloud <PointT> &cloud_out, const geometry_msgs::TransformStamped &transform)
+{
+  // Bullet (used by tf) and Eigen both store quaternions in x,y,z,w order, despite the ordering
+  // of arguments in Eigen's constructor. We could use an Eigen Map to convert without copy, but
+  // this only works if Bullet uses floats, that is if BT_USE_DOUBLE_PRECISION is not defined.
+  // Rather that risking a mistake, we copy the quaternion, which is a small cost compared to
+  // the conversion of the point cloud anyway. Idem for the origin.
+  const geometry_msgs::Quaternion& q = transform.transform.rotation;
+  Eigen::Quaternionf rotation (q.w, q.x, q.y, q.z);       // internally stored as (x,y,z,w)
+  const geometry_msgs::Vector3& v = transform.transform.translation;
+  Eigen::Vector3f origin (v.x, v.y, v.z);
+  //    Eigen::Translation3f translation(v);
+  // Assemble an Eigen Transform
+  //Eigen::Transform3f t;
+  //t = translation * rotation;
+  transformPointCloudWithNormals (cloud_in, cloud_out, origin, rotation);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> void
 transformPointCloud (const pcl::PointCloud <PointT> &cloud_in,
                      pcl::PointCloud <PointT> &cloud_out, const tf::Transform &transform)
 {
@@ -80,6 +102,27 @@ transformPointCloud (const pcl::PointCloud <PointT> &cloud_in,
   Eigen::Quaternionf rotation (q.w (), q.x (), q.y (), q.z ());       // internally stored as (x,y,z,w)
   tf::Vector3 v = transform.getOrigin ();
   Eigen::Vector3f origin (v.x (), v.y (), v.z ());
+  //    Eigen::Translation3f translation(v);
+  // Assemble an Eigen Transform
+  //Eigen::Transform3f t;
+  //t = translation * rotation;
+  transformPointCloud (cloud_in, cloud_out, origin, rotation);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> void
+transformPointCloud (const pcl::PointCloud <PointT> &cloud_in,
+                     pcl::PointCloud <PointT> &cloud_out, const geometry_msgs::TransformStamped &transform)
+{
+  // Bullet (used by tf) and Eigen both store quaternions in x,y,z,w order, despite the ordering
+  // of arguments in Eigen's constructor. We could use an Eigen Map to convert without copy, but
+  // this only works if Bullet uses floats, that is if BT_USE_DOUBLE_PRECISION is not defined.
+  // Rather that risking a mistake, we copy the quaternion, which is a small cost compared to
+  // the conversion of the point cloud anyway. Idem for the origin.
+	const geometry_msgs::Quaternion& q = transform.transform.rotation;
+	Eigen::Quaternionf rotation (q.w, q.x, q.y, q.z);       // internally stored as (x,y,z,w)
+	const geometry_msgs::Vector3& v = transform.transform.translation;
+	Eigen::Vector3f origin (v.x, v.y, v.z);
   //    Eigen::Translation3f translation(v);
   // Assemble an Eigen Transform
   //Eigen::Transform3f t;
@@ -111,6 +154,40 @@ transformPointCloudWithNormals (const std::string &target_frame,
     return (false);
   }
   catch (tf::ExtrapolationException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+
+  transformPointCloudWithNormals (cloud_in, cloud_out, transform);
+  cloud_out.header.frame_id = target_frame;
+  return (true);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> bool
+transformPointCloudWithNormals (const std::string &target_frame,
+                                const pcl::PointCloud <PointT> &cloud_in,
+                                pcl::PointCloud <PointT> &cloud_out,
+								const tf2::BufferCore &transformer)
+{
+  if (cloud_in.header.frame_id == target_frame)
+  {
+    cloud_out = cloud_in;
+    return (true);
+  }
+
+  geometry_msgs::TransformStamped transform;
+  try
+  {
+	transform = transformer.lookupTransform(target_frame, cloud_in.header.frame_id, fromPCL(cloud_in.header).stamp);
+  }
+  catch (tf2::LookupException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+  catch (tf2::ExtrapolationException &e)
   {
     ROS_ERROR ("%s", e.what ());
     return (false);
@@ -157,6 +234,39 @@ transformPointCloud (const std::string &target_frame,
 //////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> bool
 transformPointCloud (const std::string &target_frame,
+                     const pcl::PointCloud <PointT> &cloud_in,
+                     pcl::PointCloud <PointT> &cloud_out,
+					 const tf2::BufferCore &transformer)
+{
+  if (cloud_in.header.frame_id == target_frame)
+  {
+    cloud_out = cloud_in;
+    return (true);
+  }
+
+  geometry_msgs::TransformStamped transform;
+  try
+  {
+	  transform = transformer.lookupTransform(target_frame, cloud_in.header.frame_id, fromPCL(cloud_in.header).stamp);
+  }
+  catch (tf2::LookupException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+  catch (tf2::ExtrapolationException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+  transformPointCloud (cloud_in, cloud_out, transform);
+  cloud_out.header.frame_id = target_frame;
+  return (true);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> bool
+transformPointCloud (const std::string &target_frame,
                      const ros::Time & target_time,
                      const pcl::PointCloud <PointT> &cloud_in,
                      const std::string &fixed_frame,
@@ -174,6 +284,39 @@ transformPointCloud (const std::string &target_frame,
     return (false);
   }
   catch (tf::ExtrapolationException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+
+  transformPointCloud (cloud_in, cloud_out, transform);
+  cloud_out.header.frame_id = target_frame;
+  std_msgs::Header header;
+  header.stamp = target_time;
+  cloud_out.header = toPCL(header);
+  return (true);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> bool
+transformPointCloud (const std::string &target_frame,
+                     const ros::Time & target_time,
+                     const pcl::PointCloud <PointT> &cloud_in,
+                     const std::string &fixed_frame,
+                     pcl::PointCloud <PointT> &cloud_out,
+                     const tf2::BufferCore &transformer)
+{
+	geometry_msgs::TransformStamped transform;
+  try
+  {
+	  transform = transformer.lookupTransform(target_frame, target_time, cloud_in.header.frame_id, fromPCL(cloud_in.header).stamp, fixed_frame);
+  }
+  catch (tf2::LookupException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+  catch (tf2::ExtrapolationException &e)
   {
     ROS_ERROR ("%s", e.what ());
     return (false);
@@ -207,6 +350,39 @@ transformPointCloudWithNormals (const std::string &target_frame,
     return (false);
   }
   catch (tf::ExtrapolationException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+
+  transformPointCloudWithNormals (cloud_in, cloud_out, transform);
+  cloud_out.header.frame_id = target_frame;
+  std_msgs::Header header;
+  header.stamp = target_time;
+  cloud_out.header = toPCL(header);
+  return (true);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> bool
+transformPointCloudWithNormals (const std::string &target_frame,
+                                const ros::Time & target_time,
+                                const pcl::PointCloud <PointT> &cloud_in,
+                                const std::string &fixed_frame,
+                                pcl::PointCloud <PointT> &cloud_out,
+                                const tf2::BufferCore &transformer)
+{
+	geometry_msgs::TransformStamped transform;
+  try
+  {
+	  transform = transformer.lookupTransform(target_frame, target_time, cloud_in.header.frame_id, fromPCL(cloud_in.header).stamp, fixed_frame);
+  }
+  catch (tf2::LookupException &e)
+  {
+    ROS_ERROR ("%s", e.what ());
+    return (false);
+  }
+  catch (tf2::ExtrapolationException &e)
   {
     ROS_ERROR ("%s", e.what ());
     return (false);

@@ -39,7 +39,8 @@
 #define PCL_IO_CONCATENATE_DATA_H_
 
 // ROS includes
-#include <tf/transform_listener.h>
+#include <tf2_ros/transform_listener.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <nodelet_topic_tools/nodelet_lazy.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
@@ -98,8 +99,11 @@ namespace pcl_ros
       /** \brief Input point cloud topics. */
       XmlRpc::XmlRpcValue input_topics_;
 
-      /** \brief TF listener object. */
-      tf::TransformListener tf_;
+      /** \brief TF BufferCore object. */
+      tf2::BufferCore tf_;
+
+      /** \brief Pointer to TF listener object. */
+      boost::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
       /** \brief Null passthrough filter, used for pushing empty elements in the 
         * synchronizer */

@@ -79,6 +79,8 @@ pcl_ros::PointCloudConcatenateDataSynchronizer::onInit ()
     return;
   }
 
+  tf_listener_ = boost::make_shared<tf2_ros::TransformListener>(boost::ref(tf_), *nh_);
+
   // ---[ Optional parameters
   pnh_->getParam ("max_queue_size", maximum_queue_size_);
 
