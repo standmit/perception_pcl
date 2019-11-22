@@ -46,6 +46,9 @@
 #include <dynamic_reconfigure/server.h>
 #include "pcl_ros/FilterConfig.h"
 
+#include <tf2_ros/message_filter.h>
+#include <sensor_msgs/PointCloud2.h>
+
 namespace pcl_ros
 {
   namespace sync_policies = message_filters::sync_policies;
@@ -66,8 +69,6 @@ namespace pcl_ros
 
     protected:
       /** \brief The input PointCloud subscriber. */
-      ros::Subscriber sub_input_;
-
       message_filters::Subscriber<PointCloud2> sub_input_filter_;
 
       /** \brief The desired user filter field name. */
@@ -140,6 +141,12 @@ namespace pcl_ros
       /** \brief Synchronized input, and indices.*/
       boost::shared_ptr<message_filters::Synchronizer<sync_policies::ExactTime<PointCloud2, PointIndices> > >       sync_input_indices_e_;
       boost::shared_ptr<message_filters::Synchronizer<sync_policies::ApproximateTime<PointCloud2, PointIndices> > > sync_input_indices_a_;
+
+      /** \brief TF MessageFilter for input frame.*/
+      boost::shared_ptr<tf2_ros::MessageFilter<PointCloud2> > sub_input_tf_filter_;
+
+      /** \brief TF MessageFilter for output frame.*/
+      boost::shared_ptr<tf2_ros::MessageFilter<PointCloud2> > sub_output_tf_filter_;
 
       /** \brief Dynamic reconfigure service callback. */
       virtual void 

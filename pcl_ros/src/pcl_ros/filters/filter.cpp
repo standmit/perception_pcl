@@ -106,42 +106,78 @@ pcl_ros::Filter::computePublish (const PointCloud2::ConstPtr &input, const Indic
 void
 pcl_ros::Filter::subscribe()
 {
+	// Subscribe to the input using a filter
+  sub_input_filter_.subscribe(*pnh_, "input", max_queue_size_);
+
+  if (not tf_input_frame_.empty()) {
+	  sub_input_tf_filter_ = boost::make_shared<tf2_ros::MessageFilter<PointCloud2> >(boost::ref(tf_buffer_), tf_input_frame_, max_queue_size_, *pnh_);
+	  sub_input_tf_filter_->connectInput(sub_input_filter_);
+
+	  if (not tf_output_frame_.empty()) {
+		  sub_output_tf_filter_ = boost::make_shared<tf2_ros::MessageFilter<PointCloud2> >(boost::ref(tf_buffer_), tf_output_frame_, max_queue_size_, *pnh_);
+	  	  sub_output_tf_filter_->connectInput(*sub_input_tf_filter_);
+	  }
+  } else {
+	  if (not tf_output_frame_.empty()) {
+		  sub_output_tf_filter_ = boost::make_shared<tf2_ros::MessageFilter<PointCloud2> >(boost::ref(tf_buffer_), tf_output_frame_, max_queue_size_, *pnh_);
+		  sub_output_tf_filter_->connectInput(sub_input_filter_);
+	  }
+  }
+
   // If we're supposed to look for PointIndices (indices)
   if (use_indices_)
   {
-    // Subscribe to the input using a filter
-    sub_input_filter_.subscribe (*pnh_, "input", max_queue_size_);
     sub_indices_filter_.subscribe (*pnh_, "indices", max_queue_size_);
 
     if (approximate_sync_)
     {
       sync_input_indices_a_ = boost::make_shared <message_filters::Synchronizer<sync_policies::ApproximateTime<PointCloud2, pcl_msgs::PointIndices> > >(max_queue_size_);
-      sync_input_indices_a_->connectInput (sub_input_filter_, sub_indices_filter_);
+
+      if (not tf_output_frame_.empty()) {
+    	  sync_input_indices_a_->connectInput(*sub_output_tf_filter_, sub_indices_filter_);
+      } else if (not tf_input_frame_.empty()) {
+    	  sync_input_indices_a_->connectInput(*sub_input_tf_filter_, sub_indices_filter_);
+      } else {
+    	  sync_input_indices_a_->connectInput (sub_input_filter_, sub_indices_filter_);
+      }
+
       sync_input_indices_a_->registerCallback (bind (&Filter::input_indices_callback, this, _1, _2));
     }
     else
     {
       sync_input_indices_e_ = boost::make_shared <message_filters::Synchronizer<sync_policies::ExactTime<PointCloud2, pcl_msgs::PointIndices> > >(max_queue_size_);
-      sync_input_indices_e_->connectInput (sub_input_filter_, sub_indices_filter_);
+
+      if (not tf_output_frame_.empty()) {
+        sync_input_indices_e_->connectInput(*sub_output_tf_filter_, sub_indices_filter_);
+	  } else if (not tf_input_frame_.empty()) {
+	    sync_input_indices_e_->connectInput(*sub_input_tf_filter_, sub_indices_filter_);
+	  } else {
+	    sync_input_indices_e_->connectInput (sub_input_filter_, sub_indices_filter_);
+	  }
+
       sync_input_indices_e_->registerCallback (bind (&Filter::input_indices_callback, this, _1, _2));
     }
   }
   else
-    // Subscribe in an old fashion to input only (no filters)
-    sub_input_ = pnh_->subscribe<sensor_msgs::PointCloud2> ("input", max_queue_size_,  bind (&Filter::input_indices_callback, this, _1, pcl_msgs::PointIndicesConstPtr ()));
+  {
+	  if (not tf_output_frame_.empty()) {
+		  sub_output_tf_filter_->registerCallback(bind(&Filter::input_indices_callback, this, _1, pcl_msgs::PointIndicesConstPtr ()));
+	  } else if (not tf_input_frame_.empty()) {
+		  sub_input_tf_filter_->registerCallback(bind(&Filter::input_indices_callback, this, _1, pcl_msgs::PointIndicesConstPtr ()));
+	  } else {
+		  sub_input_filter_.registerCallback(bind(&Filter::input_indices_callback, this, _1, pcl_msgs::PointIndicesConstPtr ()));
+	  }
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 void
 pcl_ros::Filter::unsubscribe()
 {
+  sub_input_filter_.unsubscribe();
+
   if (use_indices_)
-  {
-    sub_input_filter_.unsubscribe();
     sub_indices_filter_.unsubscribe();
-  }
-  else
-    sub_input_.shutdown();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
